@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Plant Disease Detector</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-light">
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">🌱 Plant Disease Detection</a>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <div class="container mt-4">
+    <div class="row">
+
+      <!-- Upload Panel -->
+      <div class="col-md-6 mb-4">
+        <div class="card shadow">
+          <div class="card-header bg-primary text-white">Upload Image</div>
+          <div class="card-body text-center">
+            <input type="file" id="fileInput" accept="image/*" class="form-control mb-3">
+            <button class="btn btn-primary" onclick="uploadImage()">Predict from Upload</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Camera Panel -->
+      <div class="col-md-6 mb-4">
+        <div class="card shadow">
+          <div class="card-header bg-warning text-dark">Capture Image</div>
+          <div class="card-body text-center">
+            <video id="camera" autoplay class="border mb-3" style="width:100%;"></video>
+            <button class="btn btn-warning" onclick="capture()">Capture & Predict</button>
+            <canvas id="snapshot" class="d-none"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result Panel -->
+    <div class="row">
+      <div class="col-12">
+        <div class="card shadow">
+          <div class="card-header bg-success text-white">Prediction Result</div>
+          <div class="card-body" id="result">
+            <p class="text-muted">No prediction yet. Upload or capture an image.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('camera');
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => video.srcObject = stream);
+
+    function uploadImage() {
+      const fileInput = document.getElementById("fileInput");
+      const file = fileInput.files[0];
+      if (!file) { alert("Select an image first!"); return; }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      fetch("/predict", { method: "POST", body: formData })
+        .then(res => res.json())
+        .then(showResult)
+        .catch(err => alert("Prediction failed."));
+    }
+
+    function capture() {
+      const canvas = document.getElementById('snapshot');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+
+      canvas.toBlob(blob => {
+        const formData = new FormData();
+        formData.append("file", blob, "plant.jpg");
+
+        fetch("/predict", { method: "POST", body: formData })
+          .then(res => res.json())
+          .then(showResult)
+          .catch(err => alert("Prediction failed."));
+      });
+    }
+
+    function showResult(data) {
+      document.getElementById("result").innerHTML =
+        `<p><b>Disease:</b> ${data.disease}</p>
+         <p><b>Pesticide:</b> ${data.pesticide}</p>
+         <p><b>Confidence:</b> ${data.confidence}</p>`;
+    }
+  </script>
+</body>
+</html>
