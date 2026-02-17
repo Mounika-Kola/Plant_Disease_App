@@ -5,7 +5,8 @@ from PIL import Image
 import json
 
 app = Flask(__name__)
-model = tf.keras.models.load_model("plant_disease_model.h5")
+
+model = tf.keras.models.load_model("plant_disease_model.h5", compile=False)
 
 # -----------------------------
 # Load Class Labels
