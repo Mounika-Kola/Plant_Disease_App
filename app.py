@@ -3,6 +3,15 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import json
+import os
+
+def predict(model, img):
+    img_array = tf.keras.preprocessing.image.img_to_array(img)
+    img_array = tf.expand_dims(img_array, 0)  # Create a batch
+    predictions = model.predict(img_array)
+    predicted_class = class_names[np.argmax(predictions[0])]
+    confidence = round(100 * (np.max(predictions[0])), 2)
+    return predicted_class, confidence
 
 app = Flask(__name__)
 
@@ -88,23 +97,22 @@ def home():
 # Prediction Route
 # -----------------------------
 @app.route("/predict", methods=["POST"])
-def predict():
+@app.route("/predict", methods=["POST"])
+def predict_route():
     file = request.files['file']
-    img = Image.open(file).resize((128, 128))
-    img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
+    img = Image.open(file).resize((256, 256))   # match training size!
+    img = img.convert("RGB")                    # ensure 3 channels
 
-    prediction = model.predict(img_array)
-    class_idx = np.argmax(prediction)
+    predicted_class, confidence = predict(model, img)
 
-    disease = class_names[class_idx]
-    pesticide = recommend_pesticide(disease)
-    confidence = f"{np.max(prediction)*100:.2f}%"
+    pesticide = recommend_pesticide(predicted_class)
 
     return jsonify({
-        "disease": disease,
+        "disease": predicted_class,
         "pesticide": pesticide,
-        "confidence": confidence
+        "confidence": f"{confidence}%"
     })
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
