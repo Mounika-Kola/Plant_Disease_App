@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-FROM python:3.10-slim
+FROM python:3.13.2-slim
 
 WORKDIR /app
 COPY . /app
@@ -8,15 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 7860
 
-=======
-FROM python:3.10-slim
-
-WORKDIR /app
-COPY . /app
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-EXPOSE 7860
-
->>>>>>> 311f4846 (Add Dockerfile for Hugging Face Spaces deployment)
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:7860", "--timeout", "120", "--workers", "1"]
