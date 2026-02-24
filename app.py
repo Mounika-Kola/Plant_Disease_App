@@ -15,12 +15,12 @@ def predict(model, img):
 
 app = Flask(__name__)
 
-model = tf.keras.models.load_model("plant_disease_model.h5", compile=False)
+model = tf.keras.models.load_model(os.path.join(os.path.dirname(__file__), "plant_disease_model.h5"))
 
 # -----------------------------
 # Load Class Labels
 # -----------------------------
-with open("class_labels.json", "r") as f:
+with open(os.path.join(os.path.dirname(__file__), "class_labels.json"), "r") as f:
     class_names = json.load(f)
 
 # -----------------------------
