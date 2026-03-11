@@ -5,18 +5,21 @@ from PIL import Image
 import json
 import os
 
-def predict(model, img):
+def predict(disease_model, img):
     img_array = tf.keras.preprocessing.image.img_to_array(img)
     img_array = tf.expand_dims(img_array, 0)  # Create a batch
-    predictions = model.predict(img_array)
+    predictions = disease_model.predict(img_array)
     predicted_class = class_names[np.argmax(predictions[0])]
     confidence = round(100 * (np.max(predictions[0])), 2)
     return predicted_class, confidence
 
-
 app = Flask(__name__)
 
-model = tf.keras.models.load_model("plant_disease_model.h5", compile=False)
+# -----------------------------
+# Load Models
+# -----------------------------
+leaf_model = tf.keras.models.load_model("leaf_detector.h5")
+disease_model = tf.keras.models.load_model("plant_disease_model.h5", compile=False)
 
 # -----------------------------
 # Load Class Labels
@@ -32,43 +35,30 @@ pesticide_map = {
     "Apple___Black_rot": "Use Captan fungicide",
     "Apple___Cedar_apple_rust": "Use Myclobutanil fungicide",
     "Apple___healthy": "No pesticide needed",
-
     "Blueberry___healthy": "No pesticide needed",
-
     "Cherry_(including_sour)___Powdery_mildew": "Apply Sulfur fungicide",
     "Cherry_(including_sour)___healthy": "No pesticide needed",
-
     "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot": "Apply Azoxystrobin",
     "Corn_(maize)___Common_rust_": "Apply Mancozeb",
     "Corn_(maize)___Northern_Leaf_Blight": "Use Propiconazole",
     "Corn_(maize)___healthy": "No pesticide needed",
-
     "Grape___Black_rot": "Use Captan fungicide",
     "Grape___Esca_(Black_Measles)": "Apply systemic fungicide (e.g., Triazoles)",
     "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)": "Apply Copper fungicide",
     "Grape___healthy": "No pesticide needed",
-
     "Orange___Haunglongbing_(Citrus_greening)": "No chemical control, use resistant varieties",
-
     "Peach___Bacterial_spot": "Apply Copper-based bactericide",
     "Peach___healthy": "No pesticide needed",
-
     "Pepper,_bell___Bacterial_spot": "Apply Copper fungicide",
     "Pepper,_bell___healthy": "No pesticide needed",
-
     "Potato___Early_blight": "Apply Mancozeb",
     "Potato___Late_blight": "Use Chlorothalonil",
     "Potato___healthy": "No pesticide needed",
-
     "Raspberry___healthy": "No pesticide needed",
-
     "Soybean___healthy": "No pesticide needed",
-
     "Squash___Powdery_mildew": "Apply Sulfur fungicide",
-
     "Strawberry___Leaf_scorch": "Apply Captan fungicide",
     "Strawberry___healthy": "No pesticide needed",
-
     "Tomato___Bacterial_spot": "Apply Copper fungicide",
     "Tomato___Early_blight": "Apply Mancozeb",
     "Tomato___Late_blight": "Use Chlorothalonil",
@@ -82,10 +72,17 @@ pesticide_map = {
 }
 
 # -----------------------------
-# Helper Function
+# Helper Functions
 # -----------------------------
 def recommend_pesticide(disease_class):
     return pesticide_map.get(disease_class, "No recommendation available")
+
+def preprocess_image(file, target_size=(224,224)):
+    img = Image.open(file).convert("RGB")
+    img = img.resize(target_size)
+    img_array = tf.keras.preprocessing.image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, 0)  # batch dimension
+    return img_array
 
 # -----------------------------
 # Home Route
@@ -98,13 +95,38 @@ def home():
 # Prediction Route
 # -----------------------------
 @app.route("/predict", methods=["POST"])
-@app.route("/predict", methods=["POST"])
 def predict_route():
     file = request.files['file']
+
+    # Step 1: Leaf check (224x224)
+    leaf_array = preprocess_image(file, target_size=(224,224))
+    leaf_pred = leaf_model.predict(leaf_array)
+    print("Leaf prediction raw:", leaf_pred)  # Debug
+
+    # If model outputs a single sigmoid probability
+    if leaf_pred.shape[1] == 1:
+        leaf_prob = leaf_pred[0][0]
+        if leaf_prob > 0.5:
+            # If model outputs softmax with 2 classes
+            leaf_class = np.argmax(leaf_pred[0])
+            if leaf_class == 0:  # class 0 = Not Leaf
+                return jsonify({
+                "disease": "Unknown",
+                "pesticide": "It is not a leaf, please upload or capture a leaf image.",
+                "confidence": f"{round(100*np.max(leaf_pred[0]),2)}%"
+            })
+    else:
+        return jsonify({
+                "disease": "Unknown",
+                "pesticide": "It is not a leaf, please upload or capture a leaf image.",
+                "confidence": f"{round(100*(1-leaf_prob),2)}%"
+            })
+
+    # Step 2: Disease prediction (224x224)
     img = Image.open(file).resize((256, 256))   # match training size!
     img = img.convert("RGB")                    # ensure 3 channels
 
-    predicted_class, confidence = predict(model, img)
+    predicted_class, confidence = predict(disease_model, img)
 
     pesticide = recommend_pesticide(predicted_class)
 
@@ -115,5 +137,5 @@ def predict_route():
     })
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 7860))
     app.run(host="0.0.0.0", port=port)

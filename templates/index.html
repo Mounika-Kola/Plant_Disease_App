@@ -44,35 +44,66 @@
     </div>
 
     <!-- Result Panel -->
-    <div class="row">
-      <div class="col-12">
-        <div class="card shadow">
-          <div class="card-header bg-success text-white">Prediction Result</div>
-          <div class="card-body" id="result">
-            <p class="text-muted">No prediction yet. Upload or capture an image.</p>
+    <div class="row">                
+      <div class="col-12">           
+        <div class="card shadow">    
+          <div class="card-header bg-success text-white">
+            Prediction Result
+          </div>
+          <div class="card-body">
+            <div id="result">
+              <p class="text-muted">No prediction yet. Upload or capture an image.</p>
+            </div>
+            <img id="preview" src="" alt="Preview"
+                 style="max-width:300px; margin-top:10px; display:none; border:1px solid #ccc;">
           </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Scripts -->
   <script>
     const video = document.getElementById('camera');
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => video.srcObject = stream);
 
+    const fileInput = document.getElementById("fileInput");
+    const preview = document.getElementById("preview");
+    const resultPanel = document.getElementById("result");
+
+    // Show preview immediately after file upload
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          preview.src = e.target.result;
+          preview.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
     function uploadImage() {
-      const fileInput = document.getElementById("fileInput");
       const file = fileInput.files[0];
       if (!file) { alert("Select an image first!"); return; }
-
       const formData = new FormData();
       formData.append("file", file);
 
       fetch("/predict", { method: "POST", body: formData })
-        .then(res => res.json())
-        .then(showResult)
-        .catch(err => alert("Prediction failed."));
+        .then(res => {
+          if (!res.ok) throw new Error("Server error " + res.status);
+          return res.json();
+        })
+        .then(data => {
+          console.log("Prediction response:", data);
+          showResult(data);
+        })
+        .catch(err => {
+          console.error("Prediction error:", err);
+          alert("Prediction failed. Check backend logs.");
+        });
     }
 
     function capture() {
@@ -81,19 +112,33 @@
       canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0);
 
+      // Convert captured image to preview immediately
+      const dataURL = canvas.toDataURL("image/png");
+      preview.src = dataURL;
+      preview.style.display = "block";
+
       canvas.toBlob(blob => {
         const formData = new FormData();
         formData.append("file", blob, "plant.jpg");
 
         fetch("/predict", { method: "POST", body: formData })
-          .then(res => res.json())
-          .then(showResult)
-          .catch(err => alert("Prediction failed."));
+          .then(res => {
+            if (!res.ok) throw new Error("Server error " + res.status);
+            return res.json();
+          })
+          .then(data => {
+            console.log("Prediction response:", data);
+            showResult(data);
+          })
+          .catch(err => {
+            console.error("Prediction error:", err);
+            alert("Prediction failed. Check backend logs.");
+          });
       });
     }
 
     function showResult(data) {
-      document.getElementById("result").innerHTML =
+      resultPanel.innerHTML =
         `<p><b>Disease:</b> ${data.disease}</p>
          <p><b>Pesticide:</b> ${data.pesticide}</p>
          <p><b>Confidence:</b> ${data.confidence}</p>`;
