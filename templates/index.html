@@ -138,11 +138,20 @@
     }
 
     function showResult(data) {
-      resultPanel.innerHTML =
-        `<p><b>Disease:</b> ${data.disease}</p>
-         <p><b>Pesticide:</b> ${data.pesticide}</p>
-         <p><b>Confidence:</b> ${data.confidence}</p>`;
-    }
+  resultPanel.innerHTML = ""; // clear old content
+
+  if (data.error) {
+    // Show error in red
+    resultPanel.innerHTML = `<p style="color:red; font-weight:bold;">${data.error}</p>`;
+  } else {
+    // Show normal prediction
+    resultPanel.innerHTML = `
+        <p><b>Disease:</b> ${data.disease}</p>
+        <p><b>Pesticides Recommended:</b> ${data.pesticide}</p>
+        <p><b>Confidence:</b> ${data.confidence}</p>`;
+  }
+}
+    
   </script>
 </body>
 </html>
