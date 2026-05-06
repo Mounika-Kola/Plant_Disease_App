@@ -1,1 +1,2 @@
-Plant Disease Identification and Pesticide Recommendation
+Plant Disease Identification and Pesticide Recommendation using CNN
+  A Dual CNN model pipeline to Filter Leaf and to identify pesticides for over 38 different classes on 54000 images  
